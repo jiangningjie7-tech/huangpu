@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>中國國民黨陸軍軍官學校官網</title>
+
+<style>
+*{
+margin:0;
+padding:0;
+box-sizing:border-box;
+font-family:"Microsoft JhengHei","PingFang TC",sans-serif;
+}
+
+body{
+background:linear-gradient(180deg,#0d2d62,#1f4f9a,#ffffff);
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:20px;
+}
+
+.card{
+background:white;
+width:100%;
+max-width:420px;
+border-radius:18px;
+padding:28px;
+box-shadow:0 10px 30px rgba(0,0,0,.3);
+text-align:center;
+}
+
+h1{
+font-size:30px;
+color:#123c83;
+margin-bottom:10px;
+}
+
+h2{
+font-size:18px;
+color:#666;
+margin-bottom:25px;
+}
+
+input{
+width:100%;
+padding:14px;
+font-size:18px;
+border-radius:10px;
+border:2px solid #1f4f9a;
+margin-bottom:20px;
+}
+
+button{
+width:100%;
+padding:15px;
+font-size:20px;
+background:#123c83;
+color:white;
+border:none;
+border-radius:10px;
+cursor:pointer;
+}
+
+button:active{
+transform:scale(.98);
+}
+
+#result{
+display:none;
+animation:fade .8s;
+}
+
+.success{
+font-size:24px;
+color:#0b5f2d;
+font-weight:bold;
+margin-bottom:20px;
+line-height:1.6;
+}
+
+.poster{
+width:100%;
+border-radius:12px;
+box-shadow:0 5px 20px rgba(0,0,0,.25);
+}
+
+@keyframes fade{
+from{
+opacity:0;
+transform:translateY(30px);
+}
+to{
+opacity:1;
+transform:translateY(0);
+}
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="card">
+
+<div id="inputPage">
+
+<h1>中國國民黨<br>陸軍軍官學校官網</h1>
+
+<h2>請輸入您的姓名</h2>
+
+<input id="name" placeholder="請輸入姓名">
+
+<button onclick="ok()">確認</button>
+
+</div>
+
+<div id="result">
+
+<div class="success" id="text"></div>
+
+<img src="97621.png" class="poster">
+
+</div>
+
+</div>
+
+<script>
+
+function ok(){
+
+let name=document.getElementById("name").value.trim();
+
+if(name==""){
+alert("請輸入姓名！");
+return;
+}
+
+document.getElementById("inputPage").style.display="none";
+
+document.getElementById("result").style.display="block";
+
+document.getElementById("text").innerHTML=
+"🎉 恭喜 <span style='color:#c40000;'>"+name+
+"</span> 同學<br>被<br><span style='color:#123c83;'>中國國民黨陸軍軍官學校</span><br>錄取！";
+
+}
+
+</script>
+
+</body>
+</html>
