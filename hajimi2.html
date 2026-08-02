@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>申请结果查询</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            color: #333;
+        }
+
+        .card {
+            background-color: #ffffff;
+            padding: 30px 24px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+            border: 1px solid #eaeaea;
+            box-sizing: border-box;
+            display: none;
+            opacity: 0;
+            transform: scale(0.85) translateY(20px);
+            transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .card.show {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        .step-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .select-style {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            border-radius: 10px;
+            border: 1px solid #cccccc;
+            background-color: #fcfcfc;
+            color: #333;
+            margin-bottom: 24px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .applicant-name {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 16px;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 10px;
+            display: inline-block;
+        }
+
+        .card-img {
+            width: 100%;
+            max-height: 220px;
+            object-fit: cover;
+            display: block;
+            margin: 0 auto 16px auto;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+        }
+
+        .rejection-message {
+            font-size: 24px;
+            font-weight: 800;
+            color: #e74c3c;
+            margin-bottom: 16px;
+        }
+
+        .special-note {
+            color: #d35400;
+            font-weight: bold;
+            font-size: 15px;
+            background-color: #fef5e7;
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        /* 选项按钮样式 */
+        .option-btn {
+            background-color: #f1f3f5;
+            color: #2c3e50;
+            border: 2px solid #e9ecef;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 10px;
+            margin-bottom: 12px;
+            width: 100%;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .option-btn:active {
+            background-color: #e2e6ea;
+            transform: scale(0.98);
+        }
+
+        /* 主操作按钮 */
+        .btn {
+            background-color: #34495e;
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+
+        .btn-danger {
+            background-color: #e74c3c;
+        }
+
+        .btn-danger:active {
+            background-color: #c0392b;
+        }
+
+        /* 答错爆红警告 */
+        .error-title {
+            color: #c0392b;
+            font-size: 22px;
+            font-weight: 900;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* 答对成功提示 */
+        .success-title {
+            color: #27ae60;
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 步骤 1：选择手机 -->
+    <div class="card" id="stepPhone">
+        <div class="step-title" id="welcomeText">请选择您使用的手机品牌：</div>
+        <select id="phoneSelect" class="select-style">
+            <option value="苹果">苹果 (Apple)</option>
+            <option value="华为">华为 (Huawei)</option>
+            <option value="三星">三星 (Samsung)</option>
+            <option value="小米">小米 (Xiaomi)</option>
+            <option value="OPPO">OPPO</option>
+            <option value="vivo">vivo</option>
+            <option value="iQOO">iQOO</option>
+            <option value="黑莓">黑莓 (BlackBerry)</option>
+        </select>
+        <button class="btn" onclick="submitPhone()">提交并查询结果</button>
+    </div>
+
+    <!-- 步骤 2：未录取通知 -->
+    <div class="card" id="stepResult">
+        <div class="applicant-name" id="userNameDisplay">XX 同志：</div>
+        <img class="card-img" src="97621.png" alt="结果状态">
+        <div class="rejection-message">很遗憾你没有被录取</div>
+        <div class="special-note" id="phoneBreakNote">
+            将你的手机扔掉我们可以破格录取
+        </div>
+        <button class="btn btn-danger" onclick="startQuiz()">【点击此处尝试破格录取】或者把手机扔了！</button>
+    </div>
+
+    <!-- 步骤 3：答题卡片 -->
+    <div class="card" id="stepQuiz">
+        <div class="step-title" id="quizProgress">手机知识考核 (1/3)</div>
+        <div class="step-title" id="quizQuestion" style="font-size:16px; color:#555; font-weight:normal;">问题获取中...</div>
+        <div id="quizOptions"></div>
+    </div>
+
+    <!-- 步骤 4A：答错（去读耄耋大学） -->
+    <div class="card" id="stepFail">
+        <div class="error-title">
+            你只能去读耄耋大学！<br><br>黄埔军校不收你这种连自己的手机都不了解的人！
+        </div>
+        <button class="btn" onclick="location.reload()">重新开启测试</button>
+    </div>
+
+    <!-- 步骤 4B：全对（显示 hajimi.png 但依然没录取） -->
+    <div class="card" id="stepSuccess">
+        <div class="success-title">🎉 恭喜你！</div>
+        <!-- 👇 加载 hajimi.png 👇 -->
+        <img class="card-img" src="hajimi.png" alt="Hajimi">
+        <div class="rejection-message" style="color: #2c3e50; font-size: 22px;">
+            但是非常遗憾，你还是没有被录取！
+        </div>
+        <button class="btn" onclick="alert('结果已确认')">接受现实</button>
+    </div>
+
+    <script>
+        let userName = "申请人";
+        let selectedBrand = "苹果";
+        let currentQIndex = 0;
+
+        // 8 个品牌的题库（各 3 道三选一）
+        const questionBank = {
+            "苹果": [
+                { q: "1. 苹果手机目前使用的操作系统叫什么？", options: ["A. Android", "B. iOS", "C. Windows"], ans: 1 },
+                { q: "2. 苹果公司现任 CEO 是谁？", options: ["A. 蒂姆·库克", "B. 史蒂夫·乔布斯", "C. 埃隆·马斯克"], ans: 0 },
+                { q: "3. 苹果自研的手机芯片叫什么系列？", options: ["A. 骁龙 (Snapdragon)", "B. 天玑 (Dimensity)", "C. A系列 (如 A17)"], ans: 2 }
+            ],
+            "华为": [
+                { q: "1. 华为自研的自主操作系统叫什么？", options: ["A. 鸿蒙 (HarmonyOS)", "B. 澎湃 (HyperOS)", "C. iOS"], ans: 0 },
+                { q: "2. 华为著名的手机芯片系列名称是？", options: ["A. 麒麟 (Kirin)", "B. 猎户座 (Exynos)", "C. 联发科"], ans: 0 },
+                { q: "3. 华为手机常赞誉的品牌标语是？", options: ["A. 为发烧而生", "B. 遥遥领先", "C. 充电5分钟通话2小时"], ans: 1 }
+            ],
+            "三星": [
+                { q: "1. 三星集团总部位于哪个国家？", options: ["A. 日本", "B. 韩国", "C. 美国"], ans: 1 },
+                { q: "2. 三星旗舰手机的经典系列名称是？", options: ["A. Galaxy S系列", "B. Mate系列", "C. iPhone系列"], ans: 0 },
+                { q: "3. 三星自研的处理器系列名称叫？", options: ["A. Exynos (猎户座)", "B. 骁龙", "C. 天玑"], ans: 0 }
+            ],
+            "小米": [
+                { q: "1. 小米公司的创始人兼 CEO 是谁？", options: ["A. 雷军", "B. 余承东", "C. 罗永浩"], ans: 0 },
+                { q: "2. 小米最新的跨端操作系统叫什么？", options: ["A. MIUI", "B. 澎湃OS (HyperOS)", "C. Flyme"], ans: 1 },
+                { q: "3. 小米经典的吉祥物叫什么名字？", options: ["A. 拍拍", "B. 米兔", "C. 企鹅"], ans: 1 }
+            ],
+            "OPPO": [
+                { q: "1. OPPO 手机经典的操作系统叫什么？", options: ["A. ColorOS", "B. OriginOS", "C. MagicOS"], ans: 0 },
+                { q: "2. 曾经红极一时的广告语“充电5分钟...”下一句是？", options: ["A. 遥遥领先", "B. 通话2小时", "C. 拍照更清晰"], ans: 1 },
+                { q: "3. OPPO 旗下的高级旗舰影像系列叫？", options: ["A. Find 系列", "B. Reno 系列", "C. A 系列"], ans: 0 }
+            ],
+            "vivo": [
+                { q: "1. vivo 当前主打的手机操作系统叫什么？", options: ["A. OriginOS", "B. ColorOS", "C. HarmonyOS"], ans: 0 },
+                { q: "2. vivo 旗下主打电竞与性能的子品牌叫？", options: ["A. iQOO", "B. 红米", "C. RealMe"], ans: 0 },
+                { q: "3. vivo 常常联合哪家百年光学巨头研发影像？", options: ["A. 徕卡 (Leica)", "B. 蔡司 (ZEISS)", "C. 哈苏 (Hasselblad)"], ans: 1 }
+            ],
+            "iQOO": [
+                { q: "1. iQOO 是哪家手机厂商旗下的子品牌？", options: ["A. vivo", "B. OPPO", "C. 小米"], ans: 0 },
+                { q: "2. iQOO 品牌的主打定位是？", options: ["A. 强悍性能与电竞体验", "B. 商务办公", "C. 复古情怀"], ans: 0 },
+                { q: "3. iQOO 数字旗舰常搭配的自研电竞芯片是？", options: ["A. V系列 / Q系列", "B. M系列", "C. Tensor"], ans: 0 }
+            ],
+            "黑莓": [
+                { q: "1. 黑莓 (BlackBerry) 最标志性的硬件特征是？", options: ["A. 实体全键盘", "B. 侧滑盖", "C. 双屏显示"], ans: 0 },
+                { q: "2. 黑莓手机早期最出名的核心优势是？", options: ["A. 高度安全与加密邮件", "B. 拍照打卡", "C. 游戏性能"], ans: 0 },
+                { q: "3. 黑莓手机起源于哪个国家？", options: ["A. 加拿大", "B. 美国", "C. 英国"], ans: 0 }
+            ]
+        };
+
+        // 显示卡片通用函数（带动画）
+        function showCard(cardId) {
+            document.querySelectorAll('.card').forEach(c => {
+                c.classList.remove('show');
+                c.style.display = 'none';
+            });
+            const target = document.getElementById(cardId);
+            target.style.display = 'block';
+            setTimeout(() => target.classList.add('show'), 50);
+        }
+
+        // 初始化
+        window.onload = function() {
+            let inputName = prompt("请输入您的姓名以查询结果：", "");
+            if (inputName && inputName.trim() !== "") userName = inputName.trim();
+            
+            document.getElementById("welcomeText").innerText = userName + " 同志，请选择您使用的手机品牌：";
+            showCard("stepPhone");
+        }
+
+        // 提交手机品牌
+        function submitPhone() {
+            selectedBrand = document.getElementById("phoneSelect").value;
+            document.getElementById("userNameDisplay").innerText = userName + " 同志：";
+            document.getElementById("phoneBreakNote").innerText = "将你的 " + selectedBrand + " 手机扔掉我们可以破格录取！";
+            showCard("stepResult");
+        }
+
+        // 开始答题
+        function startQuiz() {
+            currentQIndex = 0;
+            loadQuestion();
+            showCard("stepQuiz");
+        }
+
+        // 加载问题
+        function loadQuestion() {
+            const qList = questionBank[selectedBrand];
+            const qData = qList[currentQIndex];
+
+            document.getElementById("quizProgress").innerText = `关于 ${selectedBrand} 的考核 (${currentQIndex + 1}/3)`;
+            document.getElementById("quizQuestion").innerText = qData.q;
+
+            const optionsDiv = document.getElementById("quizOptions");
+            optionsDiv.innerHTML = "";
+
+            qData.options.forEach((optText, index) => {
+                const btn = document.createElement("button");
+                btn.className = "option-btn";
+                btn.innerText = optText;
+                btn.onclick = () => handleAnswer(index, qData.ans);
+                optionsDiv.appendChild(btn);
+            });
+        }
+
+        // 处理回答
+        function handleAnswer(selectedIndex, correctIndex) {
+            if (selectedIndex !== correctIndex) {
+                // 答错 -> 耄耋大学
+                showCard("stepFail");
+            } else {
+                currentQIndex++;
+                if (currentQIndex < 3) {
+                    // 继续下一题
+                    loadQuestion();
+                } else {
+                    // 全对 -> 显示 hajimi.png
+                    showCard("stepSuccess");
+                }
+            }
+        }
+    </script>
+</body>
+</html>
