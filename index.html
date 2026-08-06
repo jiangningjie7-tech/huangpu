@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+    <title>哈基米AI旅程 - 智能行程规划助手</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- html2canvas for Exporting Images -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Tesseract.js for Image OCR (图片文字识别) -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+
+    <!-- AMap JS API Security Config -->
+    <script type="text/javascript">
+        window._AMapSecurityConfig = {
+            securityJsCode: '0f1d5301ff4c6a6f1ca8f7104b2bd347',
+        };
+    </script>
+    <!-- 高德地图 JS API -->
+    <script src="https://webapi.amap.com/maps?v=2.0&key=f12d591ec0cecdad7b707011d61c6bfa&plugin=AMap.Driving,AMap.Geolocation,AMap.Geocoder">
+    </script>
+    
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .amap-logo, .amap-copyright { opacity: 0.6; }
+        
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.5; }
+        }
+        .pulse-dot { animation: pulse-dot 1.2s ease-in-out infinite; }
+        
+        .toast-show {
+            transform: translateY(0) !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        /* 移动端缩放核心样式 */
+        .mobile-zoom-fit {
+            transform-origin: top left;
+            transition: transform 0.3s ease, width 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Header Navigation -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-purple-600 text-white p-2 rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
+                <i class="fa-solid fa-cat text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-slate-800 text-lg leading-tight">哈基米AI旅程</h1>
+                <p class="text-xs text-slate-500">AI图片识别 • 智能路线生成 • 一键导航</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-2">
+            <!-- 新增：移动端缩放切换按钮 -->
+            <button onclick="toggleMobileZoom()" id="zoomBtn" class="hidden sm:flex items-center space-x-1 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-sm font-medium rounded-lg transition">
+                <i class="fa-solid fa-expand"></i>
+                <span>全局视图</span>
+            </button>
+            
+            <button id="exportBtn" onclick="exportItinerary()" class="hidden sm:flex items-center space-x-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition">
+                <i class="fa-solid fa-download"></i>
+                <span>导出图片</span>
+            </button>
+            <button onclick="toggleSettingsModal()" class="p-2 hover:bg-slate-100 text-slate-600 rounded-lg transition" title="设置 API Key">
+                <i class="fa-solid fa-gear text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container (添加缩放标识) -->
+    <div id="appContainer" class="flex-1 flex flex-col md:flex-row overflow-hidden relative mobile-zoom-fit">
+
+        <!-- Left Sidebar: Controls & Itinerary Timeline -->
+        <aside class="w-full md:w-96 lg:w-[420px] bg-white border-r border-slate-200 flex flex-col h-1/2 md:h-full z-10 shadow-lg md:shadow-none">
+
+            <!-- AI Input Box Area -->
+            <div class="p-4 border-b border-slate-100 bg-slate-50/50 flex-shrink-0">
+                <label for="aiPrompt" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">描述您的旅游计划</label>
+                <div class="relative">
+                    <textarea id="aiPrompt" rows="3" class="w-full p-3 pr-10 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none resize-none shadow-sm transition" placeholder="例如：帮我规划成都 3 天经典美食与景点游..."></textarea>
+                    <button onclick="generateItinerary()" id="generateBtn" class="absolute bottom-3 right-3 bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition shadow-md flex items-center justify-center">
+                        <i class="fa-solid fa-wand-magic-sparkles text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- 图片识别上传按钮 -->
+                <div class="flex items-center gap-1.5 mt-2.5 overflow-x-auto pb-1 text-xs">
+                    <button onclick="document.getElementById('imageUpload').click()" class="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 hover:border-purple-300 rounded-full text-blue-700 transition shadow-sm cursor-pointer">
+                        <i class="fa-solid fa-image text-blue-500"></i> 📷 上传图片识别
+                    </button>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden" onchange="handleImageUpload(this)">
+                    
+                    <div class="w-px h-4 bg-slate-300 mx-1 flex-shrink-0"></div>
+                    
+                    <span class="text-slate-400 whitespace-nowrap flex-shrink-0">快捷灵感:</span>
+                    <button onclick="fillPrompt('杭州 2 天深度游，西湖、灵隐寺，体验江南风情')" class="px-2 py-1 bg-white border border-slate-200 hover:border-purple-300 rounded-md text-slate-600 whitespace-nowrap transition">杭州2日游</button>
+                    <button onclick="fillPrompt('西安 3 天历史文化之旅，兵马俑、大唐不夜城、城墙')" class="px-2 py-1 bg-white border border-slate-200 hover:border-purple-300 rounded-md text-slate-600 whitespace-nowrap transition">西安3日游</button>
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div id="loadingState" class="hidden p-8 text-center flex-1 flex flex-col items-center justify-center">
+                <div class="relative w-12 h-12 mb-4">
+                    <div class="absolute top-0 left-0 w-full h-full border-4 border-purple-200 rounded-full animate-ping"></div>
+                    <div class="absolute top-0 left-0 w-full h-full border-4 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <h3 class="font-semibold text-slate-700 text-base">哈基米AI正在精准规划行程...</h3>
+                <p class="text-xs text-slate-400 mt-1">正在智能解析景点、计算交通地理坐标及线路规划</p>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="p-8 text-center flex-1 flex flex-col items-center justify-center text-slate-400">
+                <i class="fa-solid fa-cat text-4xl mb-3 text-purple-200"></i>
+                <p class="text-sm">在上方输入行程要求，或上传图片<br>AI 将为您自动规划时间轴与导航路线</p>
+            </div>
+
+            <!-- Timeline Render Container -->
+            <div id="itineraryContainer" class="hidden flex-1 overflow-y-auto p-4 space-y-6">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 flex-shrink-0">
+                    <div>
+                        <h2 id="planTitle" class="font-bold text-slate-800 text-lg">行程路线规划</h2>
+                        <span id="planSummary" class="text-xs text-slate-500">共 0 天行程</span>
+                    </div>
+                    <button onclick="locateCurrentGPS()" class="text-xs bg-purple-50 text-purple-600 hover:bg-purple-100 px-2.5 py-1.5 rounded-lg flex items-center gap-1 font-medium transition">
+                        <i class="fa-solid fa-location-crosshairs"></i> GPS定位
+                    </button>
+                </div>
+
+                <div id="timelineContent" class="space-y-6 relative before:absolute before:inset-0 before:left-3.5 before:w-0.5 before:bg-slate-200">
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Right Side: AMap Container -->
+        <main class="flex-1 h-1/2 md:h-full relative bg-slate-100">
+            <div id="mapContainer" class="w-full h-full"></div>
+
+            <div class="absolute top-4 right-4 bg-white/90 backdrop-blur-md p-2 rounded-xl shadow-md border border-slate-200/80 flex flex-col space-y-1 z-10">
+                <button onclick="resetMapView()" class="p-2 hover:bg-slate-100 text-slate-700 rounded-lg transition" title="重置地图视角">
+                    <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+                <button onclick="locateCurrentGPS()" class="p-2 hover:bg-slate-100 text-slate-700 rounded-lg transition" title="定位我的位置">
+                    <i class="fa-solid fa-location-crosshairs text-sm"></i>
+                </button>
+            </div>
+        </main>
+
+    </div>
+
+    <!-- API Key Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-purple-600"></i> 哈基米AI 服务配置
+                </h3>
+                <button onclick="toggleSettingsModal()" class="text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <p class="text-xs text-slate-500 mb-4">配置您的 API Key 以唤醒智能 AI 解析能力。所有密钥仅存储在您的浏览器本地，保障信息安全。</p>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">选择 API 服务商</label>
+                    <select id="apiProvider" onchange="onProviderChange()" class="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none">
+                        <option value="deepseek">DeepSeek API (国内首选)</option>
+                        <option value="gemini">Google Gemini API</option>
+                        <option value="openai">OpenAI / 兼容格式 API</option>
+                    </select>
+                </div>
+
+                <div id="customEndpointGroup" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">自定义 API Endpoint</label>
+                    <input type="text" id="apiEndpoint" class="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="https://api.openai.com/v1">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">API Key</label>
+                    <input type="password" id="apiKeyInput" class="w-full p-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="输入您的 API 密钥">
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="toggleSettingsModal()" class="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium transition">取消</button>
+                <button onclick="saveSettings()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition">保存配置</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm z-50 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-purple-400"></i>
+        <span id="toastMsg">提示内容</span>
+    </div>
+
+    <!-- Application Core Logic -->
+    <script>
+        // ============================================================
+        //  1. 状态管理
+        // ============================================================
+        let map = null;
+        let markers = [];
+        let polyline = null;
+        let currentItinerary = null;
+        let isGenerating = false;
+        let isMobileZoomed = false; // 新增缩放状态
+
+        const CONFIG = {
+            provider: localStorage.getItem('ai_provider') || 'deepseek',
+            apiKey: localStorage.getItem('ai_api_key') || '',
+            endpoint: localStorage.getItem('ai_endpoint') || 'https://api.openai.com/v1'
+        };
+
+        // ============================================================
+        //  2. 初始化
+        // ============================================================
+        window.onload = function() {
+            initMap();
+            loadSavedConfig();
+            checkMobileZoom(); // 检查是否需要在手机端显示缩放按钮
+            window.addEventListener('resize', checkMobileZoom);
+        };
+
+        function initMap() {
+            try {
+                map = new AMap.Map('mapContainer', {
+                    zoom: 11,
+                    center: [116.397428, 39.90923],
+                    viewMode: '2D'
+                });
+
+                AMap.plugin(['AMap.ToolBar', 'AMap.Scale'], function() {
+                    map.addControl(new AMap.ToolBar({ position: 'RB' }));
+                    map.addControl(new AMap.Scale());
+                });
+
+                setTimeout(() => {
+                    map?.setFitView();
+                }, 300);
+
+                locateCurrentGPS(false);
+            } catch (err) {
+                showToast("高德地图加载失败，请检查网络设置", "error");
+            }
+        }
+
+        function loadSavedConfig() {
+            document.getElementById('apiProvider').value = CONFIG.provider;
+            document.getElementById('apiKeyInput').value = CONFIG.apiKey;
+            document.getElementById('apiEndpoint').value = CONFIG.endpoint;
+            onProviderChange();
+        }
+
+        // ============================================================
+        //  3. 缩放功能核心逻辑 (新增)
+        // ============================================================
+        function checkMobileZoom() {
+            const zoomBtn = document.getElementById('zoomBtn');
+            // 如果是手机屏幕宽度，且尚未开启缩放，则显示按钮
+            if (window.innerWidth < 768) {
+                zoomBtn.classList.remove('hidden');
+            } else {
+                // 在大屏幕上强制关闭缩放，恢复 100%
+                zoomBtn.classList.add('hidden');
+                const container = document.getElementById('appContainer');
+                container.style.transform = 'scale(1)';
+                container.style.width = '100%';
+                isMobileZoomed = false;
+            }
+        }
+
+        function toggleMobileZoom() {
+            const container = document.getElementById('appContainer');
+            const zoomBtn = document.getElementById('zoomBtn');
+            
+            if (!isMobileZoomed) {
+                // 开启全局缩放
+                const windowWidth = window.innerWidth;
+                // 以 1024px 桌面设计宽度为基准，进行等比缩放
+                const scale = Math.min(1, windowWidth / 1024); 
+                
+                container.style.transform = `scale(${scale})`;
+                container.style.transformOrigin = 'top left';
+                // 扩大宽度防止缩放后右侧出现大片白边
+                container.style.width = `${100 / scale}%`; 
+                
+                zoomBtn.innerHTML = `<i class="fa-solid fa-compress"></i> <span>恢复竖屏</span>`;
+                isMobileZoomed = true;
+                showToast("已开启桌面全局视图", "info");
+            } else {
+                // 关闭缩放，恢复手机端正常的上下布局
+                container.style.transform = 'scale(1)';
+                container.style.width = '100%';
+                zoomBtn.innerHTML = `<i class="fa-solid fa-expand"></i> <span>全局视图</span>`;
+                isMobileZoomed = false;
+                showToast("已恢复手机竖屏模式", "info");
+            }
+        }
+
+        // ============================================================
+        //  4. 设置面板
+        // ============================================================
+        function onProviderChange() {
+            const provider = document.getElementById('apiProvider').value;
+            const endpointGroup = document.getElementById('customEndpointGroup');
+            if (provider === 'openai') {
+                endpointGroup.classList.remove('hidden');
+            } else {
+                endpointGroup.classList.add('hidden');
+            }
+        }
+
+        function toggleSettingsModal() {
+            document.getElementById('settingsModal').classList.toggle('hidden');
+        }
+
+        function saveSettings() {
+            CONFIG.provider = document.getElementById('apiProvider').value;
+            CONFIG.apiKey = document.getElementById('apiKeyInput').value.trim();
+            CONFIG.endpoint = document.getElementById('apiEndpoint').value.trim();
+
+            localStorage.setItem('ai_provider', CONFIG.provider);
+            localStorage.setItem('ai_api_key', CONFIG.apiKey);
+            localStorage.setItem('ai_endpoint', CONFIG.endpoint);
+
+            showToast("配置保存成功", "success");
+            toggleSettingsModal();
+        }
+
+        // ============================================================
+        //  5. 交互辅助
+        // ============================================================
+        function fillPrompt(text) {
+            document.getElementById('aiPrompt').value = text;
+        }
+
+        // ============================================================
+        //  6. 核心：图片识别 OCR 
+        // ============================================================
+        async function handleImageUpload(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                showToast("正在识别图片中的文字，请稍候...", "info");
+                
+                try {
+                    const result = await Tesseract.recognize(file, 'chi_sim+eng', {
+                        logger: m => { /* 可在此处增加进度条，这里简单处理 */ }
+                    });
+                    
+                    const text = result.data.text.trim();
+                    if (text) {
+                        document.getElementById('aiPrompt').value = text;
+                        showToast("图片文字识别成功！请确认后点击生成。", "success");
+                    } else {
+                        showToast("未能识别出有效文字，请重试或手动输入", "warning");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    showToast("图片识别失败，请手动输入文字", "error");
+                } finally {
+                    input.value = ''; // 清空文件选择，允许重复上传同一张图
+                }
+            }
+        }
+
+        // ============================================================
+        //  7. 核心：生成行程
+        // ============================================================
+        async function generateItinerary() {
+            if (isGenerating) return;
+            const prompt = document.getElementById('aiPrompt').value.trim();
+            if (!prompt) {
+                showToast("请输入行程需求或上传图片", "warning");
+                return;
+            }
+
+            isGenerating = true;
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('itineraryContainer').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            try {
+                const systemPrompt = `你是一个精准的旅游规划助手。请根据用户的需求，生成符合格式要求的 JSON 数据。
+        结构严格如下：
+        {
+          "title": "行程大标题",
+          "summary": "简短摘要说明",
+          "days": [
+            {
+              "day": 1,
+              "theme": "当天主题",
+              "spots": [
+                {
+                  "name": "景点真实全称",
+                  "time": "推荐时间范围 (例: 09:00 - 11:30)",
+                  "description": "简单游玩建议与特色",
+                  "city": "所在城市名称"
+                }
+              ]
+            }
+          ]
+        }
+        只返回合法 JSON，严禁输出任何 Markdown 标记或多余文字。`;
+
+                let itineraryData = null;
+
+                if (CONFIG.apiKey) {
+                    itineraryData = await callUserAIAPI(systemPrompt, prompt);
+                } else {
+                    await new Promise(r => setTimeout(r, 1200));
+                    itineraryData = getDemoItineraryData();
+                    showToast("当前为测试演示模式，填入 Key 后可自由定制路线", "info");
+                }
+
+                if (itineraryData) {
+                    await geocodeItinerarySpots(itineraryData);
+                    currentItinerary = itineraryData;
+                    renderItineraryTimeline(itineraryData);
+                    renderMapMarkersAndRoute(itineraryData);
+                    showToast("行程规划完成 ✨", "success");
+                }
+            } catch (error) {
+                console.error("AI 规划发生错误:", error);
+                showToast("生成失败: " + error.message, "error");
+                document.getElementById('emptyState').classList.remove('hidden');
+            } finally {
+                isGenerating = false;
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+        }
+
+        // ============================================================
+        //  8. AI API 调用
+        // ============================================================
+        async function callUserAIAPI(systemPrompt, userPrompt) {
+            let rawText = "";
+
+            if (CONFIG.provider === 'gemini') {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${CONFIG.apiKey}`;
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userPrompt }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: { responseMimeType: "application/json" }
+                    })
+                });
+
+                const data = await resp.json();
+                if (!resp.ok || data.error) {
+                    throw new Error(data.error?.message || `Gemini API 请求失败 (HTTP ${resp.status})`);
+                }
+                rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            }
+            else if (CONFIG.provider === 'deepseek' || CONFIG.provider === 'openai') {
+                const endpoint = CONFIG.provider === 'deepseek' ?
+                    'https://api.deepseek.com/v1/chat/completions' :
+                    `${CONFIG.endpoint.replace(/\/+$/, '')}/chat/completions`;
+
+                const resp = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${CONFIG.apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: CONFIG.provider === 'deepseek' ? 'deepseek-chat' : 'gpt-3.5-turbo',
+                        messages: [
+                            { role: 'system', content: systemPrompt },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        response_format: { type: 'json_object' }
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (!resp.ok || data.error) {
+                    if (resp.status === 401) throw new Error("API Key 错误，请重新核对输入的 Key");
+                    if (resp.status === 402 || resp.status === 429) throw new Error("余额不足或触发频率限制，请检查账户余额");
+                    throw new Error(data.error?.message || data.message || `请求失败 (HTTP ${resp.status})`);
+                }
+
+                rawText = data.choices?.[0]?.message?.content;
+            }
+
+            if (!rawText) {
+                throw new Error("AI 服务未返回有效文本，请稍后重试");
+            }
+
+            const cleanJson = rawText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+            try {
+                return JSON.parse(cleanJson);
+            } catch (e) {
+                console.error("无法解析的原始响应文本:", rawText);
+                throw new Error("返回结果无法解析为数据，请再试一次");
+            }
+        }
+
+        // ============================================================
+        //  9. 地理编码（带超时保护）
+        // ============================================================
+        function geocodeItinerarySpots(data) {
+            return new Promise((resolve) => {
+                AMap.plugin('AMap.Geocoder', function() {
+                    const geocoder = new AMap.Geocoder();
+                    let promises = [];
+
+                    data.days.forEach(day => {
+                        day.spots.forEach(spot => {
+                            const p = new Promise((res) => {
+                                const timer = setTimeout(() => {
+                                    spot.lng = 116.397428 + (Math.random() - 0.5) * 0.1;
+                                    spot.lat = 39.90923 + (Math.random() - 0.5) * 0.1;
+                                    res();
+                                }, 5000);
+
+                                geocoder.getLocation(spot.name, function(status, result) {
+                                    clearTimeout(timer);
+                                    if (status === 'complete' && result.geocodes.length) {
+                                        const loc = result.geocodes[0].location;
+                                        spot.lng = loc.getLng();
+                                        spot.lat = loc.getLat();
+                                    } else {
+                                        spot.lng = 116.397428 + (Math.random() - 0.5) * 0.1;
+                                        spot.lat = 39.90923 + (Math.random() - 0.5) * 0.1;
+                                    }
+                                    res();
+                                });
+                            });
+                            promises.push(p);
+                        });
+                    });
+
+                    Promise.all(promises).then(resolve);
+                });
+            });
+        }
+
+        // ============================================================
+        //  10. 渲染行程时间线
+        // ============================================================
+        function renderItineraryTimeline(data) {
+            document.getElementById('planTitle').innerText = data.title || "行程路线规划";
+            document.getElementById('planSummary').innerText = `${data.days.length} 天深度行程规划`;
+
+            const timeline = document.getElementById('timelineContent');
+            timeline.innerHTML = '';
+
+            let spotGlobalIndex = 1;
+
+            data.days.forEach((dayData) => {
+                const dayBlock = document.createElement('div');
+                dayBlock.className = "relative pl-8 space-y-3";
+
+                dayBlock.innerHTML = `
+                    <div class="absolute -left-1.5 top-0.5 w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-bold ring-4 ring-white shadow">
+                        ${dayData.day}
+                    </div>
+                    <div class="mb-2">
+                        <h3 class="font-bold text-slate-800 text-sm">第 ${dayData.day} 天：${dayData.theme || ''}</h3>
+                    </div>
+                `;
+
+                const spotsContainer = document.createElement('div');
+                spotsContainer.className = "space-y-3";
+
+                dayData.spots.forEach((spot) => {
+                    const spotCard = document.createElement('div');
+                    spotCard.className =
+                        "bg-slate-50 border border-slate-200/80 rounded-xl p-3 hover:border-purple-300 hover:bg-white hover:shadow-md transition cursor-pointer group";
+
+                    // 导航 URL
+                    const navUrl =
+                        `https://uri.amap.com/marker?position=${spot.lng},${spot.lat}&name=${encodeURIComponent(spot.name)}`;
+
+                    spotCard.innerHTML = `
+                        <div class="flex items-start justify-between">
+                            <div class="flex items-center space-x-2">
+                                <span class="bg-purple-100 text-purple-700 text-xs font-bold px-1.5 py-0.5 rounded">
+                                    #${spotGlobalIndex}
+                                </span>
+                                <h4 class="font-semibold text-slate-800 text-sm group-hover:text-purple-600 transition">${spot.name}</h4>
+                            </div>
+                            <span class="text-[11px] text-slate-400 font-mono"><i class="fa-regular fa-clock mr-1"></i>${spot.time || ''}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-1.5 leading-relaxed">${spot.description || ''}</p>
+                        <div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                            <button onclick="panToSpot(${spot.lng}, ${spot.lat})" class="text-slate-500 hover:text-purple-600 flex items-center gap-1 transition">
+                                <i class="fa-solid fa-location-dot"></i> 地图定位
+                            </button>
+                            <a href="${navUrl}" target="_blank" onclick="event.stopPropagation()" class="text-purple-600 font-medium hover:underline flex items-center gap-1">
+                                <i class="fa-solid fa-paper-plane"></i> 高德导航
+                            </a>
+                        </div>
+                    `;
+
+                    spotCard.onclick = () => panToSpot(spot.lng, spot.lat);
+                    spotsContainer.appendChild(spotCard);
+                    spotGlobalIndex++;
+                });
+
+                dayBlock.appendChild(spotsContainer);
+                timeline.appendChild(dayBlock);
+            });
+
+            document.getElementById('itineraryContainer').classList.remove('hidden');
+        }
+
+        // ============================================================
+        //  11. 渲染地图
+        // ============================================================
+        function renderMapMarkersAndRoute(data) {
+            map.clearMap();
+            markers = [];
+
+            const linePath = [];
+            let index = 1;
+
+            data.days.forEach(day => {
+                day.spots.forEach(spot => {
+                    if (spot.lng && spot.lat) {
+                        const position = [spot.lng, spot.lat];
+                        linePath.push(position);
+
+                        const markerContent = `
+                            <div class="relative group cursor-pointer">
+                                <div class="bg-purple-600 text-white w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shadow-lg border-2 border-white transform hover:scale-110 transition">
+                                    ${index}
+                                </div>
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-slate-800 text-white text-xs py-1 px-2 rounded whitespace-nowrap shadow-md z-30">
+                                    ${spot.name}
+                                </div>
+                            </div>
+                        `;
+
+                        const marker = new AMap.Marker({
+                            position: position,
+                            content: markerContent,
+                            offset: new AMap.Pixel(-14, -14)
+                        });
+
+                        marker.on('click', () => {
+                            const navUrl =
+                                `https://uri.amap.com/marker?position=${spot.lng},${spot.lat}&name=${encodeURIComponent(spot.name)}`;
+                            const infoWindow = new AMap.InfoWindow({
+                                content: `
+                                    <div class="p-2 max-w-xs">
+                                        <h4 class="font-bold text-slate-800 text-sm mb-1">${spot.name}</h4>
+                                        <p class="text-xs text-slate-500 mb-2">${spot.description || ''}</p>
+                                        <a href="${navUrl}" 
+                                           target="_blank" class="inline-block bg-purple-600 text-white text-xs px-2.5 py-1 rounded shadow">
+                                           发起高德导航
+                                        </a>
+                                    </div>
+                                `,
+                                offset: new AMap.Pixel(0, -15)
+                            });
+                            infoWindow.open(map, position);
+                        });
+
+                        marker.setMap(map);
+                        markers.push(marker);
+                        index++;
+                    }
+                });
+            });
+
+            if (linePath.length > 1) {
+                polyline = new AMap.Polyline({
+                    path: linePath,
+                    isOutline: true,
+                    outlineColor: '#ffffff',
+                    borderWeight: 2,
+                    strokeColor: "#7c3aed",
+                    strokeOpacity: 0.8,
+                    strokeWeight: 4,
+                    strokeStyle: "solid",
+                    lineJoin: 'round'
+                });
+                polyline.setMap(map);
+            }
+
+            if (markers.length > 0) {
+                map.setFitView();
+            }
+        }
+
+        // ============================================================
+        //  12. 地图操作
+        // ============================================================
+        function panToSpot(lng, lat) {
+            if (map) map.setZoomAndCenter(15, [lng, lat]);
+        }
+
+        function resetMapView() {
+            if (map && markers.length > 0) map.setFitView();
+        }
+
+        function locateCurrentGPS(showNotice = true) {
+            AMap.plugin('AMap.Geolocation', function() {
+                const geolocation = new AMap.Geolocation({
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    buttonPosition: 'RB',
+                    zoomToAccuracy: true
+                });
+
+                geolocation.getCurrentPosition(function(status, result) {
+                    if (status === 'complete') {
+                        const userLocation = [result.position.lng, result.position.lat];
+                        const userMarker = new AMap.Marker({
+                            position: userLocation,
+                            content: `<div class="w-4 h-4 bg-purple-500 rounded-full border-2 border-white shadow-md pulse-dot"></div>`,
+                            title: '您的当前位置'
+                        });
+                        map.add(userMarker);
+                        map.panTo(userLocation);
+                        if (showNotice) showToast("定位成功", "success");
+                    } else {
+                        if (showNotice) showToast("定位失败，请检查定位权限", "error");
+                    }
+                });
+            });
+        }
+
+        // ============================================================
+        //  13. 导出功能
+        // ============================================================
+        function exportItinerary() {
+            const container = document.getElementById('itineraryContainer');
+            if (container.classList.contains('hidden')) {
+                showToast("暂无可导出的行程", "warning");
+                return;
+            }
+
+            showToast("正在导出图片...", "info");
+            html2canvas(container, { backgroundColor: "#ffffff", scale: 2 }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `哈基米AI旅程-行程规划-${new Date().toISOString().slice(0,10)}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                showToast("导出成功", "success");
+            }).catch(() => showToast("导出失败", "error"));
+        }
+
+        // ============================================================
+        //  14. Toast 通知
+        // ============================================================
+        function showToast(message, type = "info") {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+
+            if (type === "success") {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            } else if (type === "error") {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+            } else if (type === "warning") {
+                toastIcon.className = "fa-solid fa-triangle-exclamation text-amber-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-info text-purple-400";
+            }
+
+            toast.classList.add('toast-show');
+            clearTimeout(toast._timer);
+            toast._timer = setTimeout(() => {
+                toast.classList.remove('toast-show');
+            }, 3200);
+        }
+
+        // ============================================================
+        //  15. 示例数据
+        // ============================================================
+        function getDemoItineraryData() {
+            return {
+                title: "杭州 2 天深度游 (示例行程)",
+                summary: "经典江南风情与人文景观探索",
+                days: [{
+                    day: 1,
+                    theme: "西湖经典环湖游",
+                    spots: [
+                        { name: "断桥残雪", time: "08:30 - 10:00", description: "西湖著名景致，漫步白堤感受诗情画意。" },
+                        { name: "雷峰塔", time: "10:30 - 12:30", description: "登塔远眺西湖全景，感受传说历史。" },
+                        { name: "清河坊街", time: "16:00 - 19:00", description: "杭州保存最完好的古街区，品尝杭州特色小吃。" }
+                    ]
+                }, {
+                    day: 2,
+                    theme: "禅意灵隐与茶文化",
+                    spots: [
+                        { name: "灵隐寺", time: "08:30 - 11:30", description: "千年古刹，祈福并观赏飞来峰石窟造像。" },
+                        { name: "龙井村", time: "13:30 - 16:30", description: "漫步茶园，体验西湖龙井茶文化。" }
+                    ]
+                }]
+            };
+        }
+    </script>
+</body>
+</html>
